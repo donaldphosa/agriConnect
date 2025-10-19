@@ -1,27 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { getAuth, signOut } from 'firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
-
-
-
 export default function ProfileScreen({ navigation }) {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [stats, setStats] = useState({ products: 0, sales: 0, wishlist: 0 });
+  const [stats, setStats] = useState({ products: 0, sales: 0, wishlist: 0, revenue: 0 });
 
   const auth = getAuth();
   const currentUser = auth.currentUser;
+
   useFocusEffect(
     React.useCallback(() => {
       fetchUser(); // Re-fetch userData when screen is focused
     }, [])
   );
+
   const fetchUser = async () => {
     if (!currentUser) {
       setError(true);
@@ -39,20 +38,35 @@ export default function ProfileScreen({ navigation }) {
       if (docSnap.exists()) setUserData(docSnap.data());
       else setError(true);
 
-      // Fetch stats
+      // Products
       const productsQuery = query(collection(db, 'products'), where('ownerId', '==', currentUser.uid));
       const productsSnapshot = await getDocs(productsQuery);
+      const productCount = productsSnapshot.size;
 
-      const salesQuery = query(collection(db, 'orders'), where('farmerId', '==', currentUser.uid));
-      const salesSnapshot = await getDocs(salesQuery);
+      // Orders & Sales
+      const ordersSnapshot = await getDocs(collection(db, 'orders'));
+      let totalSales = 0;
+      let totalRevenue = 0;
+      ordersSnapshot.forEach(orderDoc => {
+        const orderData = orderDoc.data();
+        if (Array.isArray(orderData.items)) {
+          const farmerItems = orderData.items.filter(item => item?.ownerId === currentUser.uid);
+          farmerItems.forEach(item => {
+            totalSales += item.quantity || 0;
+            totalRevenue += (item.price || 0) * (item.quantity || 0);
+          });
+        }
+      });
 
+      // Wishlist
       const wishlistQuery = query(collection(db, 'wishlist'), where('userId', '==', currentUser.uid));
       const wishlistSnapshot = await getDocs(wishlistQuery);
 
       setStats({
-        products: productsSnapshot.size,
-        sales: salesSnapshot.size,
+        products: productCount,
+        sales: totalSales,
         wishlist: wishlistSnapshot.size,
+        revenue: totalRevenue
       });
 
     } catch (err) {
@@ -62,10 +76,6 @@ export default function ProfileScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchUser();
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -92,6 +102,9 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity style={styles.retryBtn} onPress={fetchUser}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -105,11 +118,10 @@ export default function ProfileScreen({ navigation }) {
             source={{ uri: userData.avatar || 'https://via.placeholder.com/150' }}
             style={styles.avatar}
           />
-
           <View style={styles.userInfo}>
-            <Text style={styles.name}>{userData.name}</Text>
-            <Text style={styles.email}>{userData.email}</Text>
-            <Text style={styles.userType}>{userData.userType?.toUpperCase()}</Text>
+            <Text style={styles.name}>{userData.name || 'N/A'}</Text>
+            <Text style={styles.email}>{userData.email || 'N/A'}</Text>
+            <Text style={styles.userType}>{userData.userType?.toUpperCase() || 'N/A'}</Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutText}>Logout</Text>
@@ -129,22 +141,44 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsSection}>
-          {[
-            { count: stats.products, label: 'My Products', onPress: () => navigation.navigate('FarmerProductsScreen') },
-            { count: stats.sales, label: 'My Sales', onPress: () => navigation.navigate('FarmerSalesScreen') },
-            { count: stats.wishlist, label: 'Wishlist', onPress: () => navigation.navigate('WishlistScreen') },
-          ].map((item, i) => (
-            <TouchableOpacity key={i} style={styles.statCard} onPress={item.onPress}>
-              <Text style={styles.statCount}>{item.count}</Text>
-              <Text style={styles.statLabel}>{item.label}</Text>
+        {/* Stats for Farmer */}
+        {userData.userType === 'farmer' && (
+          <View style={styles.statsSection}>
+            {[
+              { count: stats.products, label: 'My Products', onPress: () => navigation.navigate('FarmerProductsScreen') },
+              { count: stats.sales, label: 'My Sales', onPress: () => navigation.navigate('FarmerSalesScreen') },
+              { count: `R${stats.revenue.toFixed(2)}`, label: 'Revenue', onPress: null },
+            ].map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.statCard}
+                onPress={item.onPress ? item.onPress : () => {}}
+              >
+                <Text style={styles.statCount}>{item.count}</Text>
+                <Text style={styles.statLabel}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Wishlist for Consumer */}
+        {userData.userType === 'consumer' && (
+          <View style={styles.statsSection}>
+            <TouchableOpacity
+              style={styles.statCard}
+              onPress={() => navigation.navigate('WishlistScreen')}
+            >
+              <Text style={styles.statCount}>{stats.wishlist}</Text>
+              <Text style={styles.statLabel}>My Wishlist</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        )}
 
         {/* Edit Profile */}
-        <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('EditProfile', { userData })}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('EditProfile', { userData })}
+        >
           <Text style={styles.actionText}>Edit Profile</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -155,7 +189,7 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { padding: 16, paddingBottom: Platform.OS === 'android' ? 20 : 0 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
-  retryBtn: { backgroundColor: 'green', padding: 12, borderRadius: 8 },
+  retryBtn: { backgroundColor: 'green', padding: 12, borderRadius: 8, marginBottom: 8 },
   retryText: { color: 'white', fontWeight: 'bold' },
 
   header: {

@@ -115,8 +115,8 @@ export default function AISearchScreen({ navigation }) {
       <Text style={styles.cardTitle}>{item.name}</Text>
       <Text style={styles.cardPrice}>R{item.price?.toFixed(2)}</Text>
       <Text style={styles.cardMeta}>Owner: {item.ownerName}</Text>
-      <Text style={styles.cardMeta}>Location: {item.Location || "N/A"}</Text>
-      <Text style={styles.cardMeta}>Store: {item.store || "N/A"}</Text>
+      <Text style={styles.cardMeta}>Location: {item.location || "N/A"}</Text>
+      <Text style={styles.cardMeta}>Store: {item.storeName || "N/A"}</Text>
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => navigation.navigate("MapScreen", { product: item })}

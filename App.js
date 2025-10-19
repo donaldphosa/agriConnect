@@ -40,6 +40,7 @@ import EditProductScreen from './components/EditProductScreen';
 import EditProfileScreen from './components/EditProfileScreen';
 import OrdersScreen from './components/OrdersScreen';
 import MapScreen from './components/MapScreen';
+import ViewOrderDetailsScreen from './components/ViewOrderDetailsScreen'
 
 const RootStack = createStackNavigator();
 const AuthStack = createStackNavigator();
@@ -250,6 +251,11 @@ export default function App() {
             name="EditProductScreen"
             component={EditProductScreen}
             options={{ headerShown: true, title: 'Edit Product' }}
+          />
+          <RootStack.Screen
+            name="ViewOrderDetailsScreen"
+            component={ViewOrderDetailsScreen}
+            options={{ headerShown: true, title: 'Order Details' }}
           />
           <RootStack.Screen
             name="CheckoutScreen"

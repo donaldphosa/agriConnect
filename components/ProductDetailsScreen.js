@@ -74,16 +74,14 @@ export default function ProductDetailsScreen({ route, navigation }) {
         <Text style={styles.price}>
           R{product.price !== undefined ? product.price.toFixed(2) : '0.00'}
         </Text>
-        <Text style={styles.description}>
-          {product.description || 'No description available.'}
-        </Text>
+
       </View>
 
       {/* Action Button */}
       {isOwner ? (
         <TouchableOpacity
           style={styles.buttonEdit}
-          onPress={() => navigation.navigate('EditProduct', { product })}
+          onPress={() => navigation.navigate('EditProductScreen', { product })}
         >
           <Text style={styles.buttonText}>Edit Product</Text>
         </TouchableOpacity>

@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     marginTop:20
   },
   searchInput: { flex: 1, fontSize: 16 },
-  categoriesContainer: { marginBottom: -212 },
+  categoriesContainer: { marginBottom: 20 },
   categoryButton: {
     width: 100,
     height: 80,
