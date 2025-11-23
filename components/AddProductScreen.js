@@ -83,7 +83,7 @@ export default function AddProductScreen({ navigation }) {
       }
 
       const ownerData = ownerSnap.data();
-      const { Location, storeName: store } = ownerData;
+      const { location, storeName: store } = ownerData;
 
       // ✅ Save product with location + store name
       await addDoc(collection(db, 'products'), {
@@ -94,7 +94,7 @@ export default function AddProductScreen({ navigation }) {
         ownerId: user.uid,
         category,
         storeName: store || 'Unnamed Store',
-        location: Location || null,
+        location: location || null,
         createdAt: serverTimestamp(),
       });
 

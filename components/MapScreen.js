@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -9,14 +10,73 @@ import {
   Alert,
   Platform,
 } from "react-native";
+import { collection, getDocs, addDoc, query, where, updateDoc, doc } from 'firebase/firestore';
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
+import { db } from "../firebaseConfig";
 
 export default function MapScreen({ route, navigation }) {
   const { product } = route.params || {};
   const [region, setRegion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [savedText, setSavedText] = useState('');
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const value = await AsyncStorage.getItem('@my_text');
+        if (value !== null) {
+          setSavedText(value);
+        }
+      } catch (e) {
+        console.log('Failed to load data', e);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleAddToCart = async (product) => {
+    //console.log(product);
+    if (!product) {
+      Alert.alert('Login Required', 'Please login to add items to cart.', [
+        { text: 'Login', onPress: () => navigation.navigate('Login') },
+      ]);
+      return;
+    }
+
+    try {
+
+      //aMfTItpoXpf2sSeOftTOPIKGdAy2
+      const q = query(
+        collection(db, 'cart'),
+        where('userId', '==', savedText),
+        where('productId', '==', product.id)
+      );
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        await addDoc(collection(db, 'cart'), {
+          userId: "aMfTItpoXpf2sSeOftTOPIKGdAy2",
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          imgPath: product.imgPath || product.imgUrl,
+          createdAt: new Date(),
+          ownerId: product.ownerId
+        });
+        Alert.alert('Success', `${product.name} added to cart!`);
+      } else {
+        const existingDoc = snapshot.docs[0];
+        const currentQty = existingDoc.data().quantity || 0;
+        await updateDoc(doc(db, 'cart', existingDoc.id), { quantity: currentQty + 1 });
+        Alert.alert('Updated', `${product.name} quantity increased!`);
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
+  };
+
 
   useEffect(() => {
     const fetchCoordinates = async () => {
@@ -129,14 +189,14 @@ export default function MapScreen({ route, navigation }) {
           Location: {product.location || product.Location || "N/A"}
         </Text>
 
-        <TouchableOpacity style={styles.button} onPress={openInGoogleMaps}>
+        <TouchableOpacity style={styles.button} onPress={()=>handleAddToCart(product)}>
           <Ionicons
-            name="navigate-circle"
+            name="cart-outline"
             size={22}
             color="#fff"
             style={{ marginRight: 8 }}
           />
-          <Text style={styles.buttonText}>Open in Google Maps</Text>
+          <Text style={styles.buttonText}>Add To Cart</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -178,7 +238,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  backButton: { marginTop: 8, alignItems: "center", padding: 10 },
+  backButton: { marginTop: 8,marginBottom:15 ,alignItems: "center", padding: 10 },
   backText: { color: "green", fontWeight: "bold" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

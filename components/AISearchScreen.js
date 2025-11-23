@@ -8,12 +8,52 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { AntDesign, EvilIcons, Ionicons } from "@expo/vector-icons";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import Fuse from "fuse.js";
+import { Modal, Portal, Button, PaperProvider, Divider } from 'react-native-paper';
+import { ScrollView } from "react-native";
+import { generateText } from "../services/OpenAIService";
+import GeminiChat, { runGemini } from "../services/GeminiChat";
+import FlashMessage from "react-native-flash-message";
+
 
 export default function AISearchScreen({ navigation }) {
+  const [text, setText] = React.useState("");
+  const [visible, setVisible] = React.useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [result, setResult] = useState('');
+
+
+  const handleSend = async () => {
+    try {
+      if (!prompt || prompt.trim() == "") return;
+    //console.log(prompt);
+    const output = await runGemini(prompt);
+    setResult(output || "No response");
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  // const handleGenerateText = async () => {
+  //   if (!prompt || prompt.trim() == "") return;
+  //   console.log(prompt);
+  //   try {
+  //     const text = await generateText(prompt);
+  //     setResult(text);
+  //   } catch (error) {
+  //     console.error('Error:', error);
+  //   }
+  // };
+  const showModal = () => setVisible(true);
+  const hideModal = () => {
+    setPrompt("");
+    setResult("");
+    setVisible(false);
+  }
+  const containerStyle = { backgroundColor: 'white', padding: 20 };
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -110,13 +150,14 @@ export default function AISearchScreen({ navigation }) {
     }, 500);
   };
 
+
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{item.name}</Text>
       <Text style={styles.cardPrice}>R{item.price?.toFixed(2)}</Text>
       <Text style={styles.cardMeta}>Owner: {item.ownerName}</Text>
-      <Text style={styles.cardMeta}>Location: {item.location || "N/A"}</Text>
-      <Text style={styles.cardMeta}>Store: {item.storeName || "N/A"}</Text>
+      <Text style={styles.cardMeta}>Location: {item.Location || "N/A"}</Text>
+      <Text style={styles.cardMeta}>Store: {item.store || "N/A"}</Text>
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => navigation.navigate("MapScreen", { product: item })}
@@ -127,46 +168,90 @@ export default function AISearchScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <Ionicons name="sparkles-outline" size={22} color="green" style={{ marginRight: 8 }} />
-        <TextInput
-          style={styles.input}
-          placeholder="Ask AI: Find fresh tomatoes in Limpopo..."
-          placeholderTextColor="#888"
-          value={query}
-          onChangeText={setQuery}
-        />
-        <TouchableOpacity onPress={handleSearch}>
-          <Ionicons name="arrow-forward-circle" size={28} color="green" />
-        </TouchableOpacity>
+    <PaperProvider>
+
+      <View style={styles.container}>
+        <View style={styles.searchBar}>
+          <Ionicons name="sparkles-outline" size={22} color="green" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.input}
+            placeholder="Ask AI: Find fresh tomatoes in Limpopo..."
+            placeholderTextColor="#888"
+            value={query}
+            onChangeText={setQuery}
+          />
+          <TouchableOpacity onPress={handleSearch}>
+            <Ionicons name="arrow-forward-circle" size={28} color="green" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.smartText}>{smartText}</Text>
+
+
+        {loading ? (
+          <ActivityIndicator size="large" color="green" style={{ marginTop: 20 }} />
+        ) : results.length > 0 ? (
+          <FlatList
+            data={results}
+            keyExtractor={item => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
+          />
+        ) : (
+          <FlatList
+            data={popularProducts}
+            keyExtractor={item => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
+          />
+        )}
+
+        <Button buttonColor="green" icon={() => (<Ionicons name="sparkles-outline" size={24} color="white" />)} mode="contained"
+          onPress={() => showModal()}>
+          Ask AI
+        </Button>
       </View>
+      <Portal>
+        <Modal visible={visible} onDismiss={()=>{
+          setPrompt("");
+          setResult("");
+          hideModal();
+          }} contentContainerStyle={containerStyle}>
+          <EvilIcons onPress={() => hideModal()} name="close-o" size={24} color="black" />
+          <Text style={{ color: 'green', fontWeight: "600" }}>Ask me any general question about our products.</Text>
+          <Divider />
+          <View style={{maxHeight:200}}>
+            <ScrollView>
+              {result && <Text style={styles.result}>{result}</Text>}
+            </ScrollView>
+          </View>
+          <View style={styles.searchBar}>
+            <Ionicons name="sparkles-outline" size={22} color="green" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.input}
+              placeholder="Ask our AI general questions..."
+              placeholderTextColor="#888"
+              value={prompt}
+              onChangeText={setPrompt}
+            />
+            <TouchableOpacity onPress={handleSend}>
+              <Ionicons name="arrow-forward-circle" size={28} color="green" />
+            </TouchableOpacity>
+          </View>
+           {/* <View style={styles.fl}>
+            <GeminiChat />
+            <FlashMessage position={"top"} />
+        </View> */}
+        </Modal>
+      </Portal>
+    </PaperProvider>
 
-      <Text style={styles.smartText}>{smartText}</Text>
-
-      {loading ? (
-        <ActivityIndicator size="large" color="green" style={{ marginTop: 20 }} />
-      ) : results.length > 0 ? (
-        <FlatList
-          data={results}
-          keyExtractor={item => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
-        />
-      ) : (
-        <FlatList
-          data={popularProducts}
-          keyExtractor={item => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
-        />
-      )}
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 16 },
+  fl:{flex: 1},
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -176,7 +261,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: "#f9f9f9",
-    marginTop:20
+    marginTop: 20
+  },
+  result: {
+    marginTop: 10,
+    fontSize: 16,
   },
   input: { flex: 1, fontSize: 16, color: "#000" },
   smartText: { marginTop: 12, fontSize: 16, color: "#555", fontStyle: "italic" },

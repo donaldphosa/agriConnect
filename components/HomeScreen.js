@@ -53,6 +53,8 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleAddToCart = async (product) => {
+    // console.log("uers id "+user.uid);
+    // console.log("uers id "+user.uid);
     if (!user) {
       Alert.alert('Login Required', 'Please login to add items to cart.', [
         { text: 'Login', onPress: () => navigation.navigate('Login') },
@@ -64,7 +66,7 @@ export default function HomeScreen({ navigation }) {
       const q = query(
         collection(db, 'cart'),
         where('userId', '==', user.uid),
-        where('productId', '==', product.id)
+        where('productId', '==', product.ownerId)
       );
       const snapshot = await getDocs(q);
 
@@ -171,7 +173,7 @@ const styles = StyleSheet.create({
     marginTop:20
   },
   searchInput: { flex: 1, fontSize: 16 },
-  categoriesContainer: { marginBottom: 20 },
+  categoriesContainer: { marginBottom: -212 },
   categoryButton: {
     width: 100,
     height: 80,

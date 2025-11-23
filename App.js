@@ -20,7 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Screens
 import LoginScreen from './components/Login';
 import SignUpScreen from './components/SignUp';
@@ -40,7 +40,7 @@ import EditProductScreen from './components/EditProductScreen';
 import EditProfileScreen from './components/EditProfileScreen';
 import OrdersScreen from './components/OrdersScreen';
 import MapScreen from './components/MapScreen';
-import ViewOrderDetailsScreen from './components/ViewOrderDetailsScreen'
+import ChatBotScreen from './components/ChatBotScreen';
 
 const RootStack = createStackNavigator();
 const AuthStack = createStackNavigator();
@@ -72,6 +72,7 @@ const useAuthState = () => {
         if (snap.exists()) {
           setUserType(snap.data().userType || null);
         } else {
+          saveData(currentUser.uid || "no user");
           console.warn(`⚠️ No user doc found for UID: ${currentUser.uid}`);
           setUserType(null);
         }
@@ -82,6 +83,15 @@ const useAuthState = () => {
         setInitializing(false);
       }
     });
+
+     const saveData = async (text) => {
+    try {
+      await AsyncStorage.setItem('@my_text', text);
+      
+    } catch (e) {
+      console.log('Failed to save data', e);
+    }
+  };
 
     return () => unsubscribe();
   }, []);
@@ -251,11 +261,6 @@ export default function App() {
             name="EditProductScreen"
             component={EditProductScreen}
             options={{ headerShown: true, title: 'Edit Product' }}
-          />
-          <RootStack.Screen
-            name="ViewOrderDetailsScreen"
-            component={ViewOrderDetailsScreen}
-            options={{ headerShown: true, title: 'Order Details' }}
           />
           <RootStack.Screen
             name="CheckoutScreen"

@@ -60,6 +60,9 @@ export default function FarmerProductsScreen({ navigation }) {
         {products.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>You have no products yet.</Text>
+            <TouchableOpacity style={styles.addButton} onPress={handleAddProduct}>
+              <Text style={styles.addButtonText}>Add Your First Product</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
