@@ -53,8 +53,6 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleAddToCart = async (product) => {
-    // console.log("uers id "+user.uid);
-    // console.log("uers id "+user.uid);
     if (!user) {
       Alert.alert('Login Required', 'Please login to add items to cart.', [
         { text: 'Login', onPress: () => navigation.navigate('Login') },
@@ -66,7 +64,7 @@ export default function HomeScreen({ navigation }) {
       const q = query(
         collection(db, 'cart'),
         where('userId', '==', user.uid),
-        where('productId', '==', product.ownerId)
+        where('productId', '==', product.id)
       );
       const snapshot = await getDocs(q);
 
@@ -114,7 +112,7 @@ export default function HomeScreen({ navigation }) {
 
       {/* Categories */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
-        {categoriesList.map(cat => (
+        {/* {categoriesList.map(cat => (
           <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}>
             <ImageBackground
               source={{ uri: categoryImages[cat] }}
@@ -127,7 +125,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.categoryText}>{cat}</Text>
             </ImageBackground>
           </TouchableOpacity>
-        ))}
+        ))} */}
       </ScrollView>
 
       {/* Product Grid */}
@@ -173,7 +171,7 @@ const styles = StyleSheet.create({
     marginTop:20
   },
   searchInput: { flex: 1, fontSize: 16 },
-  categoriesContainer: { marginBottom: -212 },
+  categoriesContainer: { marginBottom: 20 },
   categoryButton: {
     width: 100,
     height: 80,

@@ -15,12 +15,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 // Screens
 import LoginScreen from './components/Login';
 import SignUpScreen from './components/SignUp';
@@ -40,13 +41,13 @@ import EditProductScreen from './components/EditProductScreen';
 import EditProfileScreen from './components/EditProfileScreen';
 import OrdersScreen from './components/OrdersScreen';
 import MapScreen from './components/MapScreen';
-import ChatBotScreen from './components/ChatBotScreen';
+import ViewOrderDetailsScreen from './components/ViewOrderDetailsScreen';
 
 const RootStack = createStackNavigator();
 const AuthStack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/* ---------- Auth Hook: keeps user + userType in sync ---------- */
+/* -------------------- AUTH HOOK -------------------- */
 const useAuthState = () => {
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState(null);
@@ -55,26 +56,33 @@ const useAuthState = () => {
   useEffect(() => {
     const auth = getAuth();
 
-    // Listen for Firebase Auth state changes
+    const loadCachedUserType = async () => {
+      const cachedType = await AsyncStorage.getItem('userType');
+      if (cachedType) setUserType(cachedType);
+    };
+    loadCachedUserType();
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (!currentUser) {
           setUser(null);
           setUserType(null);
+          await AsyncStorage.removeItem('userType');
           setInitializing(false);
           return;
         }
 
         setUser(currentUser);
 
-        // Fetch userType from Firestore document
+        // Fetch user type from Firestore
         const snap = await getDoc(doc(db, 'users', currentUser.uid));
         if (snap.exists()) {
-          setUserType(snap.data().userType || null);
+          const type = snap.data().userType || null;
+          setUserType(type);
+          await AsyncStorage.setItem('userType', type);
         } else {
-          saveData(currentUser.uid || "no user");
-          console.warn(`⚠️ No user doc found for UID: ${currentUser.uid}`);
           setUserType(null);
+          await AsyncStorage.removeItem('userType');
         }
       } catch (err) {
         console.error('Error fetching userType:', err);
@@ -84,22 +92,13 @@ const useAuthState = () => {
       }
     });
 
-     const saveData = async (text) => {
-    try {
-      await AsyncStorage.setItem('@my_text', text);
-      
-    } catch (e) {
-      console.log('Failed to save data', e);
-    }
-  };
-
     return () => unsubscribe();
   }, []);
 
   return { initializing, user, userType };
 };
 
-/* ---------- Custom Bottom Tab Bar ---------- */
+/* -------------------- CUSTOM TAB BAR -------------------- */
 function CustomTabBar({ state, descriptors, navigation }) {
   const animatedScales = useRef(state.routes.map(() => new Animated.Value(1))).current;
 
@@ -127,14 +126,10 @@ function CustomTabBar({ state, descriptors, navigation }) {
             const currentUser = getAuth().currentUser;
 
             if (requiresAuth && !currentUser) {
-              Alert.alert(
-                'Login Required',
-                'Please login to access this feature.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Login', onPress: () => navigation.navigate('AuthFlow', { screen: 'Login' }) },
-                ]
-              );
+              Alert.alert('Login Required', 'Please login to access this feature.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Login', onPress: () => navigation.navigate('AuthFlow', { screen: 'Login' }) },
+              ]);
               return;
             }
 
@@ -160,7 +155,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
   );
 }
 
-/* ---------- Consumer Tabs ---------- */
+/* -------------------- CONSUMER TABS -------------------- */
 function ConsumerTabs() {
   return (
     <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={props => <CustomTabBar {...props} />}>
@@ -173,7 +168,7 @@ function ConsumerTabs() {
   );
 }
 
-/* ---------- Farmer Tabs ---------- */
+/* -------------------- FARMER TABS -------------------- */
 function FarmerTabs() {
   return (
     <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={props => <CustomTabBar {...props} />}>
@@ -186,7 +181,7 @@ function FarmerTabs() {
   );
 }
 
-/* ---------- Auth Navigator ---------- */
+/* -------------------- AUTH NAVIGATOR -------------------- */
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -196,7 +191,7 @@ function AuthNavigator() {
   );
 }
 
-/* ---------- Consumer Flow ---------- */
+/* -------------------- CONSUMER FLOW -------------------- */
 const ConsumerStack = createStackNavigator();
 function ConsumerFlow() {
   return (
@@ -208,7 +203,7 @@ function ConsumerFlow() {
   );
 }
 
-/* ---------- Farmer Flow ---------- */
+/* -------------------- FARMER FLOW -------------------- */
 const FarmerStack = createStackNavigator();
 function FarmerFlow() {
   return (
@@ -218,11 +213,12 @@ function FarmerFlow() {
   );
 }
 
-/* ---------- Main App ---------- */
+/* -------------------- MAIN APP -------------------- */
 export default function App() {
   const { initializing, user, userType } = useAuthState();
 
-  if (initializing) {
+  // 👇 Added safeguard so screen never disappears
+  if (initializing || (user && !userType)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#43a047" />
@@ -231,7 +227,7 @@ export default function App() {
   }
 
   return (
-     <SafeAreaProvider>
+    <SafeAreaProvider>
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           {!user ? (
@@ -242,42 +238,21 @@ export default function App() {
             <RootStack.Screen name="ConsumerFlow" component={ConsumerFlow} />
           )}
 
-          <RootStack.Screen
-            name="ProductDetailsScreen"
-            component={ProductDetailsScreen}
-            options={{ headerShown: true, title: 'Product Details' }}
-          />
-          <RootStack.Screen
-            name="EditProfile"
-            component={EditProfileScreen}
-            options={{ headerShown: false, title: 'Product Details' }}
-          />
-          <RootStack.Screen
-            name="OrderDetailsScreen"
-            component={FarmerOrderDetailsScreen}
-            options={{ headerShown: true, title: 'Order Details' }}
-          />
-          <RootStack.Screen
-            name="EditProductScreen"
-            component={EditProductScreen}
-            options={{ headerShown: true, title: 'Edit Product' }}
-          />
-          <RootStack.Screen
-            name="CheckoutScreen"
-            component={CheckoutScreen}
-            options={{ headerShown: true, title: 'Checkout' }}
-          />
-          <RootStack.Screen
-            name="MapScreen"
-            component={MapScreen}
-            options={{ headerShown: true, title: 'MapScreen' }}
-          />
+          {/* Common Screens */}
+          <RootStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} options={{ headerShown: true, title: 'Product Details' }} />
+          <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+          <RootStack.Screen name="OrderDetailsScreen" component={FarmerOrderDetailsScreen} options={{ headerShown: true, title: 'Order Details' }} />
+          <RootStack.Screen name="EditProductScreen" component={EditProductScreen} options={{ headerShown: true, title: 'Edit Product' }} />
+          <RootStack.Screen name="ViewOrderDetailsScreen" component={ViewOrderDetailsScreen} options={{ headerShown: true, title: 'Order Details' }} />
+          <RootStack.Screen name="CheckoutScreen" component={CheckoutScreen} options={{ headerShown: true, title: 'Checkout' }} />
+          <RootStack.Screen name="MapScreen" component={MapScreen} options={{ headerShown: true, title: 'Map' }} />
         </RootStack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
   );
 }
 
+/* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   tabInner: {

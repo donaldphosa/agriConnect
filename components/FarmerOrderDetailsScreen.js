@@ -49,7 +49,7 @@ export default function FarmerOrderDetailsScreen() {
 
   const renderProduct = ({ item }) => (
     <View style={styles.productCard}>
-      <Text style={styles.productName}>{item.name}</Text>
+      <Text style={styles.productName}>{item.name?item.name:"no name"}</Text>
       <Text style={styles.productQty}>Quantity: {item.quantity}</Text>
       <Text style={styles.productPrice}>Price: R{item.price?.toFixed(2) || '0.00'}</Text>
       <Text style={styles.subtotal}>
